@@ -10,7 +10,7 @@ import (
 )
 
 var (
-	bufKb        = 50    // http buffer size in KB
+	bufKb        = 25    // http buffer size in KB
 	maxKb        = 200   // stop speedtest after downloading maxKb KB
 	fullDownload = false // ignore maxKB and download full url
 )
@@ -43,13 +43,18 @@ type downloader struct {
 	r     io.Reader
 	times int
 	start time.Time
+	prev  time.Time
+	// speeds
+	avgSpd, maxSpd float64
 }
 
 func newDownloader(r io.Reader) *downloader {
+	now := time.Now()
 	return &downloader{
 		buf:   make([]byte, 1024*bufKb),
 		r:     r,
-		start: time.Now(),
+		start: now,
+		prev:  now,
 	}
 }
 
@@ -58,10 +63,7 @@ func (d *downloader) downSpeed() {
 		n, err := io.ReadFull(d.r, d.buf)
 		_ = n
 		d.times++
-		fmt.Printf("\rDownloaded %s, Speed %s/s         ",
-			kbMb(float64(d.times*bufKb)),
-			kbMb(d.currSpeed()))
-		// fmt.Printf("%s", d.buf[:n])
+		fmt.Printf("%s       ", d.speedstr(true))
 		if err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				break
@@ -72,15 +74,29 @@ func (d *downloader) downSpeed() {
 			break
 		}
 	}
-	fmt.Printf("\rDownloaded %s, Speed %s/s in %v\n",
-		kbMb(float64(d.times*bufKb)),
-		kbMb(d.currSpeed()),
-		time.Since(d.start))
+	fmt.Printf("%s in %v\n", d.speedstr(false), time.Since(d.start))
 }
 
-func (d *downloader) currSpeed() float64 {
+func (d *downloader) speeds() {
 	elapsed := time.Since(d.start).Seconds()
-	return float64(d.times*bufKb) / elapsed // in KB/s
+	now := time.Now()
+	d.avgSpd = float64(d.times*bufKb) / elapsed // in KB/s
+	curr := float64(bufKb) / now.Sub(d.prev).Seconds()
+	if curr > d.maxSpd {
+		d.maxSpd = curr
+	}
+	d.prev = now
+}
+
+func (d *downloader) speedstr(calc bool) string {
+	if calc {
+		d.speeds()
+	}
+	return fmt.Sprintf("\rGot %s, A: %s/s, M: %s/s",
+		kbMb(float64(d.times*bufKb)),
+		kbMb(d.avgSpd),
+		kbMb(d.maxSpd),
+	)
 }
 
 // converts bytes in KB to KB or MB as string.
