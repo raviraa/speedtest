@@ -1,6 +1,6 @@
 # speedtest
 
-Simple command line app to test internet speed in console. Can do partial approximate test too downloading small size instead of downloading a big file, if bandwidth is constrained. Prints the connection time and download speed.
+Simple command line app to test internet download speed in console. Can do partial approximate test too downloading small size instead of downloading a big file, if bandwidth is constrained. Prints the connection time and download speed.
 
 ```
 $./speedtest  -h
